@@ -1,0 +1,23 @@
+name: Сборка ZYLO
+on: workflow_dispatch
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - run: pip install pillow
+      - name: Применить ZYLO
+        run: bash apply_zylo.sh
+        env:
+          TG_API_ID: ${{ secrets.TG_API_ID }}
+          TG_API_HASH: ${{ secrets.TG_API_HASH }}
+      - name: Собрать APK
+        run: cd Telegram && ./gradlew assembleAfatDebug --no-daemon
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ZYLO-apk
+          path: Telegram/**/build/outputs/apk/**/*.apk

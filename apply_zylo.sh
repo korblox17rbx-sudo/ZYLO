@@ -1,33 +1,36 @@
 #!/usr/bin/env bash
-# Превращает официальный исходник Telegram для Android в ZYLO
 set -e
-ROOT="$(cd "$(dirname "$0")" && pwd)"
-if [ ! -d "$ROOT/Telegram" ]; then
-  git clone --depth 1 https://github.com/DrKLO/Telegram.git "$ROOT/Telegram"
-fi
+export ROOT="$(cd "$(dirname "$0")" && pwd)"
+[ -d "$ROOT/Telegram" ] || git clone --depth 1 https://github.com/DrKLO/Telegram.git "$ROOT/Telegram"
 cd "$ROOT/Telegram"
 
-# 1. Название приложения
-for f in $(find . -path "*/res/values*/strings.xml" -o -path "*/res/values*/strings_*.xml" | grep -v build/); do
+for f in $(find . -path "*/res/values*/strings*.xml" | grep -v build/); do
   sed -i -E 's#(<string name="AppName"[^>]*>)[^<]*(</string>)#\1𝒵𝒴𝐿𝒪\2#' "$f"
   sed -i -E 's#(<string name="app_name"[^>]*>)[^<]*(</string>)#\1𝒵𝒴𝐿𝒪\2#' "$f"
 done
 
-# 2. Новое имя пакета (чтобы не конфликтовало с Telegram)
 find . -name build.gradle -not -path "*/build/*" -exec sed -i -E 's#applicationId ?"?[a-zA-Z0-9_.]*"#applicationId "com.zylo.app"#' {} \;
 
-# 3. Круглая иконка
-for d in mdpi hdpi xhdpi xxhdpi xxxhdpi; do
-  for res in $(find . -type d -name "mipmap-$d" -not -path "*/build/*"); do
-    cp "$ROOT/icons/mipmap-$d/ic_launcher.png" "$res/"
-    cp "$ROOT/icons/mipmap-$d/ic_launcher_round.png" "$res/"
-    for n in $(ls "$res" | grep -E '^(icon|ic_launcher).*\.png$'); do
-      cp "$ROOT/icons/mipmap-$d/ic_launcher.png" "$res/$n"
-    done
-  done
-done
-# убрать adaptive-иконки (они перебивают PNG)
+python3 - <<'PY'
+import os, glob
+from PIL import Image
+src = Image.open(os.environ['ROOT'] + '/zylo_512_round.png')
+sizes = {'mdpi':48,'hdpi':72,'xhdpi':96,'xxhdpi':144,'xxxhdpi':192}
+for d, n in sizes.items():
+    for res in glob.glob('**/mipmap-' + d, recursive=True):
+        for f in glob.glob(res + '/*.png'):
+            b = os.path.basename(f)
+            if b.startswith(('ic_launcher', 'icon')):
+                src.resize((n, n), Image.LANCZOS).save(f)
+PY
+
 find . -type d -name "mipmap-anydpi*" -not -path "*/build/*" -exec sh -c 'rm -f "$1"/ic_launcher*.xml "$1"/icon*.xml' _ {} \;
 
+f=TMessagesProj/src/main/java/org/telegram/messenger/BuildVars.java
+if [ -n "$TG_API_ID" ]; then
+  sed -i -E "s#APP_ID = [0-9]+#APP_ID = $TG_API_ID#" "$f"
+  sed -i -E "s#APP_HASH = \"[^\"]*\"#APP_HASH = \"$TG_API_HASH\"#" "$f"
+fi
+
 find . -name google-services.json -not -path "*/build/*" -exec sed -i -E 's#"package_name": *"[^"]*"#"package_name": "com.zylo.app"#' {} \;
-echo "Готово: Telegram -> ZYLO"
+echo "Готово"
