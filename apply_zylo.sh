@@ -29,4 +29,5 @@ done
 # убрать adaptive-иконки (они перебивают PNG)
 find . -type d -name "mipmap-anydpi*" -not -path "*/build/*" -exec sh -c 'rm -f "$1"/ic_launcher*.xml "$1"/icon*.xml' _ {} \;
 
+find . -name google-services.json -not -path "*/build/*" -exec sed -i -E 's#"package_name": *"[^"]*"#"package_name": "com.zylo.app"#' {} \;
 echo "Готово: Telegram -> ZYLO"
